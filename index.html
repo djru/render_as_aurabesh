@@ -105,8 +105,8 @@
             input.addEventListener("input", renderToImage);
 
             function renderToImage() {
-                const text = input.value || "Type Something";
-                const lines = text.split("\n");
+                const text = input.value.trim() || "Type Something";
+                const lines = text.split("\n").map((l) => l.trim());
                 const fontSize = 70;
                 const padding = 30;
                 const scale = 2; // For high-resolution Retina displays
