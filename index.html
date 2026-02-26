@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Aurebesh Live Render</title>
+        <title>Aurebesh Image Generator</title>
         <style>
             @font-face {
                 font-family: "Aurabesh";
@@ -12,13 +12,6 @@
                 font-display: swap;
                 font-weight: normal;
                 font-style: normal;
-            }
-
-            .custom-text {
-                font-family: "Aurabesh", sans-serif;
-                font-size: 3rem;
-                color: #000000;
-                line-height: 1.2;
             }
 
             body {
@@ -45,29 +38,36 @@
                 height: 80px;
                 padding: 12px;
                 box-sizing: border-box;
+                border: 2px solid #000;
+                border-radius: 12px;
                 font-size: 16px;
                 outline: none;
             }
 
             .instruction {
-                font-size: 12px;
+                font-size: 13px;
                 color: #666;
                 text-align: center;
                 margin-bottom: 5px;
+                font-weight: 500;
             }
 
-            /* The canvas is now visible and styled to look like a UI element */
-            #renderCanvas {
+            /* This is the final image the user interacts with */
+            #finalImage {
                 width: 100%;
                 height: auto;
-                border: 2px solid #eee;
+                border: 1px solid #eee;
                 border-radius: 12px;
-                background-color: #fff;
                 display: block;
-                touch-action: manipulation;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             }
 
-            .hidden-font-trigger {
+            /* We keep the canvas hidden; it's just our 'engine' */
+            #bufferCanvas {
+                display: none;
+            }
+
+            .font-loader {
                 font-family: "Aurabesh";
                 visibility: hidden;
                 position: absolute;
@@ -76,43 +76,42 @@
         </style>
     </head>
     <body>
-        <div class="hidden-font-trigger">Loading Font...</div>
+        <div class="font-loader">Force Load</div>
 
         <div class="container">
             <textarea
                 id="textInput"
-                placeholder="Type Star Wars text..."
+                placeholder="Type your message..."
             ></textarea>
 
-            <p class="instruction">
-                Long-press the image below to save or share
-            </p>
+            <p class="instruction">Hold the image below to Save or Copy</p>
 
-            <canvas id="renderCanvas"></canvas>
+            <img id="finalImage" alt="Your Aurebesh text will appear here" />
         </div>
+
+        <canvas id="bufferCanvas"></canvas>
 
         <script>
             const input = document.getElementById("textInput");
-            const canvas = document.getElementById("renderCanvas");
+            const img = document.getElementById("finalImage");
+            const canvas = document.getElementById("bufferCanvas");
             const ctx = canvas.getContext("2d");
 
-            // Initial setup
-            window.onload = () => {
-                // Wait for font to be ready before first render
-                document.fonts.ready.then(() => {
-                    draw();
-                });
-            };
+            // Ensure font is ready before initial draw
+            document.fonts.ready.then(() => {
+                renderToImage();
+            });
 
-            input.addEventListener("input", draw);
+            input.addEventListener("input", renderToImage);
 
-            function draw() {
+            function renderToImage() {
                 const text = input.value || "Type Something";
                 const lines = text.split("\n");
                 const fontSize = 70;
                 const padding = 60;
+                const scale = 2; // For high-resolution Retina displays
 
-                // 1. Temporary measure to find width
+                // 1. Measure text width
                 ctx.font = `${fontSize}px aurabesh`;
                 let maxW = 0;
                 lines.forEach((line) => {
@@ -120,21 +119,22 @@
                     if (metrics.width > maxW) maxW = metrics.width;
                 });
 
-                // 2. Resize canvas to fit content perfectly
-                // We use a high-resolution multiplier for crisp text on iPhone
-                const scale = 2;
-                canvas.width = (maxW + padding * 2) * scale;
-                canvas.height =
-                    (lines.length * fontSize * 1.2 + padding * 2) * scale;
+                // 2. Setup Canvas dimensions
+                const logicalWidth = maxW + padding * 2;
+                const logicalHeight =
+                    lines.length * fontSize * 1.2 + padding * 2;
 
-                // Scale context so we can use normal coordinates
+                canvas.width = logicalWidth * scale;
+                canvas.height = logicalHeight * scale;
+
+                // Normalize coordinates for the scale
                 ctx.scale(scale, scale);
 
-                // 3. Background
+                // 3. Draw Background
                 ctx.fillStyle = "#ffffff";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
-                // 4. Text
+                // 4. Draw Text
                 ctx.fillStyle = "#000000";
                 ctx.font = `${fontSize}px aurabesh`;
                 ctx.textAlign = "center";
@@ -143,10 +143,14 @@
                 lines.forEach((line, i) => {
                     ctx.fillText(
                         line,
-                        (maxW + padding * 2) / 2,
+                        logicalWidth / 2,
                         padding + i * fontSize * 1.2,
                     );
                 });
+
+                // 5. Convert Canvas to Base64 Data URL and push to <img> tag
+                const dataUrl = canvas.toDataURL("image/png");
+                img.src = dataUrl;
             }
         </script>
     </body>
