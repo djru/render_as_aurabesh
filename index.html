@@ -1,179 +1,153 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aurebesh Text Generator</title>
-    <style>
-        /* Define the custom font name as aurabesh */
-        @font-face {
-            font-family: aurabesh;
-            src: url(starwars.ttf); 
-        }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Aurebesh Live Render</title>
+        <style>
+            @font-face {
+                font-family: "Aurabesh";
+                /* The ?v=1 trick forces Chrome to reload the file fresh */
+                src: url("AurebeshBold-Rw1l.ttf?v=1") format("truetype");
+                font-display: swap;
+                font-weight: normal;
+                font-style: normal;
+            }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #ffffff;
-            color: #000000;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+            .custom-text {
+                font-family: "Aurabesh", sans-serif;
+                font-size: 3rem;
+                color: #000000;
+                line-height: 1.2;
+            }
 
-        .container {
-            width: 100%;
-            max-width: 600px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
+            body {
+                font-family: -apple-system, system-ui, sans-serif;
+                background-color: #ffffff;
+                color: #000;
+                margin: 0;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
 
-        textarea {
-            width: 100%;
-            height: 120px;
-            padding: 15px;
-            box-sizing: border-box;
-            background-color: #fcfcfc;
-            color: #000;
-            border: 2px solid #000;
-            border-radius: 8px;
-            font-size: 16px;
-            resize: vertical;
-        }
+            .container {
+                width: 100%;
+                max-width: 500px;
+                display: flex;
+                flex-direction: column;
+                gap: 15px;
+            }
 
-        .preview-area {
-            min-height: 120px;
-            padding: 30px;
-            background-color: #ffffff;
-            border: 2px solid #000;
-            border-radius: 8px;
-            text-align: center;
-            overflow-wrap: break-word;
-        }
+            textarea {
+                width: 100%;
+                height: 80px;
+                padding: 12px;
+                box-sizing: border-box;
+                font-size: 16px;
+                outline: none;
+            }
 
-        .custom-text {
-            font-family: aurabesh, sans-serif;
-            font-size: 3rem;
-            color: #000000; 
-            line-height: 1.2;
-        }
+            .instruction {
+                font-size: 12px;
+                color: #666;
+                text-align: center;
+                margin-bottom: 5px;
+            }
 
-        button {
-            padding: 15px 20px;
-            background-color: #000000;
-            color: #ffffff;
-            border: none;
-            border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            width: 100%;
-        }
+            /* The canvas is now visible and styled to look like a UI element */
+            #renderCanvas {
+                width: 100%;
+                height: auto;
+                border: 2px solid #eee;
+                border-radius: 12px;
+                background-color: #fff;
+                display: block;
+                touch-action: manipulation;
+            }
 
-        button:active {
-            opacity: 0.7;
-        }
+            .hidden-font-trigger {
+                font-family: "Aurabesh";
+                visibility: hidden;
+                position: absolute;
+                height: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="hidden-font-trigger">Loading Font...</div>
 
-        canvas {
-            display: none; 
-            max-width: 100%;
-            height: auto;
-        }
+        <div class="container">
+            <textarea
+                id="textInput"
+                placeholder="Type Star Wars text..."
+            ></textarea>
 
-        #statusMessage {
-            text-align: center;
-            font-size: 14px;
-            margin-top: 5px;
-            font-weight: 500;
-        }
-    </style>
-</head>
-<body>
+            <p class="instruction">
+                Long-press the image below to save or share
+            </p>
 
-    <div class="container">
-        <textarea id="textInput" placeholder="Type here to translate..."></textarea>
-        
-        <div class="preview-area">
-            <div id="textOutput" class="custom-text"></div>
+            <canvas id="renderCanvas"></canvas>
         </div>
 
-        <button onclick="copyImageToClipboard()">Copy as Image</button>
-        <p id="statusMessage"></p>
-        
-        <canvas id="renderCanvas"></canvas>
-    </div>
+        <script>
+            const input = document.getElementById("textInput");
+            const canvas = document.getElementById("renderCanvas");
+            const ctx = canvas.getContext("2d");
 
-    <script>
-        const input = document.getElementById('textInput');
-        const output = document.getElementById('textOutput');
-        const canvas = document.getElementById('renderCanvas');
-        const ctx = canvas.getContext('2d');
-        const statusMessage = document.getElementById('statusMessage');
+            // Initial setup
+            window.onload = () => {
+                // Wait for font to be ready before first render
+                document.fonts.ready.then(() => {
+                    draw();
+                });
+            };
 
-        input.addEventListener('input', () => {
-            output.innerHTML = input.value.replace(/\n/g, '<br>');
-            statusMessage.textContent = ''; 
-            canvas.style.display = 'none';
-        });
+            input.addEventListener("input", draw);
 
-        async function copyImageToClipboard() {
-            const text = input.value.trim();
-            if (!text) {
-                statusMessage.textContent = 'Enter text to copy.';
-                return;
+            function draw() {
+                const text = input.value || "Type Something";
+                const lines = text.split("\n");
+                const fontSize = 70;
+                const padding = 60;
+
+                // 1. Temporary measure to find width
+                ctx.font = `${fontSize}px aurabesh`;
+                let maxW = 0;
+                lines.forEach((line) => {
+                    const metrics = ctx.measureText(line);
+                    if (metrics.width > maxW) maxW = metrics.width;
+                });
+
+                // 2. Resize canvas to fit content perfectly
+                // We use a high-resolution multiplier for crisp text on iPhone
+                const scale = 2;
+                canvas.width = (maxW + padding * 2) * scale;
+                canvas.height =
+                    (lines.length * fontSize * 1.2 + padding * 2) * scale;
+
+                // Scale context so we can use normal coordinates
+                ctx.scale(scale, scale);
+
+                // 3. Background
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 4. Text
+                ctx.fillStyle = "#000000";
+                ctx.font = `${fontSize}px aurabesh`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "top";
+
+                lines.forEach((line, i) => {
+                    ctx.fillText(
+                        line,
+                        (maxW + padding * 2) / 2,
+                        padding + i * fontSize * 1.2,
+                    );
+                });
             }
-
-            statusMessage.textContent = 'Preparing image...';
-
-            await document.fonts.ready;
-
-            const lines = text.split('\n');
-            const fontSize = 80; 
-            
-            ctx.font = `${fontSize}px aurabesh`;
-
-            let maxWidth = 0;
-            for (const line of lines) {
-                const metrics = ctx.measureText(line);
-                if (metrics.width > maxWidth) {
-                    maxWidth = metrics.width;
-                }
-            }
-
-            canvas.width = Math.max(maxWidth + 120, 400); 
-            canvas.height = (lines.length * fontSize * 1.2) + 120; 
-
-            ctx.font = `${fontSize}px aurabesh`;
-            
-            // Render background white
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Render text black
-            ctx.fillStyle = '#000000';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-
-            for (let i = 0; i < lines.length; i++) {
-                ctx.fillText(lines[i], canvas.width / 2, 60 + (i * fontSize * 1.2));
-            }
-
-            canvas.toBlob(async (blob) => {
-                try {
-                    const item = new ClipboardItem({ 'image/png': blob });
-                    await navigator.clipboard.write([item]);
-                    statusMessage.textContent = 'Image copied!';
-                    statusMessage.style.color = '#000';
-                } catch (error) {
-                    console.error(error);
-                    canvas.style.display = 'block';
-                    statusMessage.textContent = 'Copy failed. Long-press the image below to save.';
-                }
-            }, 'image/png');
-        }
-    </script>
-</body>
+        </script>
+    </body>
 </html>
