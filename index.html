@@ -6,9 +6,16 @@
         <title>Aurebesh Image Generator</title>
         <style>
             @font-face {
-                font-family: "Aurabesh";
-                /* The ?v=1 trick forces Chrome to reload the file fresh */
+                font-family: Aurabesh;
                 src: url("AurebeshBold-Rw1l.ttf?v=1") format("truetype");
+                font-display: swap;
+                font-weight: normal;
+                font-style: normal;
+            }
+
+            @font-face {
+                font-family: Mandalorian;
+                src: url("MandoAfRegular-8MgpM.otf?v=1") format("opentype");
                 font-display: swap;
                 font-weight: normal;
                 font-style: normal;
@@ -33,15 +40,19 @@
                 gap: 15px;
             }
 
+            select,
             textarea {
                 width: 100%;
-                height: 80px;
                 padding: 12px;
                 box-sizing: border-box;
                 border: 2px solid #000;
                 border-radius: 12px;
                 font-size: 16px;
                 outline: none;
+            }
+
+            textarea {
+                height: 80px;
             }
 
             .instruction {
@@ -52,7 +63,6 @@
                 font-weight: 500;
             }
 
-            /* This is the final image the user interacts with */
             #finalImage {
                 width: 100%;
                 height: auto;
@@ -62,13 +72,19 @@
                 box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             }
 
-            /* We keep the canvas hidden; it's just our 'engine' */
             #bufferCanvas {
                 display: none;
             }
 
             .font-loader {
-                font-family: "Aurabesh";
+                font-family: Aurabesh;
+                visibility: hidden;
+                position: absolute;
+                height: 0;
+            }
+
+            .font-loader-2 {
+                font-family: Mandalorian;
                 visibility: hidden;
                 position: absolute;
                 height: 0;
@@ -77,8 +93,14 @@
     </head>
     <body>
         <div class="font-loader">Force Load</div>
+        <div class="font-loader-2">Force Load 2</div>
 
         <div class="container">
+            <select id="fontSelect">
+                <option value="Aurabesh">Aurabesh</option>
+                <option value="Mandalorian">Mandalorian</option>
+            </select>
+
             <textarea
                 id="textInput"
                 placeholder="Type your message..."
@@ -86,40 +108,81 @@
 
             <p class="instruction">Hold the image below to Save or Copy</p>
 
-            <img id="finalImage" alt="Your Aurebesh text will appear here" />
+            <img id="finalImage" alt="Your text will appear here" />
         </div>
 
         <canvas id="bufferCanvas"></canvas>
 
         <script>
             const input = document.getElementById("textInput");
+            const fontSelect = document.getElementById("fontSelect");
             const img = document.getElementById("finalImage");
             const canvas = document.getElementById("bufferCanvas");
             const ctx = canvas.getContext("2d");
 
-            // Ensure font is ready before initial draw
-            document.fonts.ready.then(() => {
-                renderToImage();
-            });
+            function updateUrlState() {
+                const stateObj = {
+                    text: input.value,
+                    font: fontSelect.value,
+                };
 
-            input.addEventListener("input", renderToImage);
+                const jsonString = JSON.stringify(stateObj);
+                const base64State = btoa(
+                    unescape(encodeURIComponent(jsonString)),
+                );
+
+                const newUrl =
+                    window.location.pathname +
+                    window.location.search +
+                    "#state=" +
+                    base64State;
+                window.history.replaceState(null, "", newUrl);
+            }
+
+            function loadStateFromUrl() {
+                const hashString = window.location.hash.substring(1);
+                const params = new URLSearchParams(hashString);
+                const encodedState = params.get("state");
+
+                if (encodedState) {
+                    try {
+                        const decodedString = decodeURIComponent(
+                            escape(atob(encodedState)),
+                        );
+                        const stateObj = JSON.parse(decodedString);
+
+                        if (stateObj.text !== undefined) {
+                            input.value = stateObj.text;
+                        }
+                        if (stateObj.font !== undefined) {
+                            fontSelect.value = stateObj.font;
+                        }
+                    } catch (error) {
+                        console.error(error);
+                    }
+                }
+            }
+
+            function handleInteraction() {
+                renderToImage();
+                updateUrlState();
+            }
 
             function renderToImage() {
                 const text = input.value.trim() || "Type Something";
                 const lines = text.split("\n").map((l) => l.trim());
-                const fontSize = 70;
+                const fontSize = 50;
                 const padding = 30;
-                const scale = 2; // For high-resolution Retina displays
+                const scale = 2;
+                const currentFont = fontSelect.value;
 
-                // 1. Measure text width
-                ctx.font = `${fontSize}px aurabesh`;
+                ctx.font = `${fontSize}px ${currentFont}`;
                 let maxW = 0;
                 lines.forEach((line) => {
                     const metrics = ctx.measureText(line);
                     if (metrics.width > maxW) maxW = metrics.width;
                 });
 
-                // 2. Setup Canvas dimensions
                 const logicalWidth = maxW + padding * 2;
                 const logicalHeight =
                     lines.length * fontSize * 1.2 + padding * 2;
@@ -127,16 +190,13 @@
                 canvas.width = logicalWidth * scale;
                 canvas.height = logicalHeight * scale;
 
-                // Normalize coordinates for the scale
                 ctx.scale(scale, scale);
 
-                // 3. Draw Background
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
-                // 4. Draw Text
                 ctx.fillStyle = "#000000";
-                ctx.font = `${fontSize}px aurabesh`;
+                ctx.font = `${fontSize}px ${currentFont}`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "top";
 
@@ -148,10 +208,18 @@
                     );
                 });
 
-                // 5. Convert Canvas to Base64 Data URL and push to <img> tag
                 const dataUrl = canvas.toDataURL("image/png");
                 img.src = dataUrl;
             }
+
+            loadStateFromUrl();
+
+            document.fonts.ready.then(() => {
+                renderToImage();
+            });
+
+            input.addEventListener("input", handleInteraction);
+            fontSelect.addEventListener("change", handleInteraction);
         </script>
     </body>
 </html>
